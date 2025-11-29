@@ -1,0 +1,19 @@
+{
+  "name": "masseurmatch-realtime-server",
+  "version": "1.0.0",
+  "description": "OpenAI Realtime API WebSocket server for MasseurMatch waitlist",
+  "type": "module",
+  "main": "realtime.js",
+  "scripts": {
+    "start": "node realtime.js",
+    "dev": "node --watch realtime.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "node-fetch": "^3.3.2",
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

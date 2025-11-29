@@ -28,6 +28,8 @@ export async function POST(req: Request) {
     });
 
     // Call OpenAI with function calling enabled
+    // Note: The prompt pmpt_692a9f2f6e148195850e91132c55366005098e88b3968255
+    // is for Realtime API. For Chat Completions, we embed the prompt directly.
     const completion = await openai.chat.completions.create({
       model: "gpt-4",
       messages: [
