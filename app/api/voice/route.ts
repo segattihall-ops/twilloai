@@ -12,10 +12,11 @@ export async function POST() {
 
   gather.say(
     "Thank you for calling Knotty. " +
-      "Press 1 to speak directly with a masseur. " +
-      "Press 2 for booking or availability. " +
-      "Press 3 for prices and general questions. " +
-      "Press 4 to leave a voicemail."
+      "Press 1 to speak with our AI assistant. " +
+      "Press 2 to speak directly with a masseur. " +
+      "Press 3 for booking or availability. " +
+      "Press 4 for prices and general questions. " +
+      "Press 5 to leave a voicemail."
   );
 
   twiml.say("I did not receive any input. Goodbye.");
