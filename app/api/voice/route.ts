@@ -11,12 +11,10 @@ export async function POST() {
   });
 
   gather.say(
-    "Thank you for calling Knotty. " +
-      "Press 1 to speak with our AI assistant. " +
-      "Press 2 to speak directly with a masseur. " +
-      "Press 3 for booking or availability. " +
-      "Press 4 for prices and general questions. " +
-      "Press 5 to leave a voicemail."
+    "Thank you for calling MasseurMatch. We're coming soon! " +
+      "Press 1 to join our early access waitlist. " +
+      "Press 2 to speak with our team. " +
+      "Press 3 to leave a message."
   );
 
   twiml.say("I did not receive any input. Goodbye.");
