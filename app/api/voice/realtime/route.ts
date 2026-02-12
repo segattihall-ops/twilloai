@@ -5,8 +5,8 @@ import twilio from "twilio";
  * Twilio Media Stream connector for OpenAI Realtime API
  *
  * This route initiates a WebSocket Media Stream to connect callers
- * directly to the OpenAI Realtime API server, which uses the stored
- * prompt: pmpt_692a9f2f6e148195850e91132c55366005098e88b3968255
+ * directly to the OpenAI Realtime API server for Brazilian Blessed Cleaning
+ * appointment scheduling with Sarah, the AI assistant.
  *
  * Prerequisites:
  * 1. Deploy the WebSocket server from /server directory

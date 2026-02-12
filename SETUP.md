@@ -9,7 +9,7 @@ Add these in your Vercel project settings (Settings → Environment Variables):
 TWILIO_ACCOUNT_SID = ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN = your_auth_token_here
 TWILIO_PHONE_NUMBER = +1234567890
-MASSEUR_PHONE = +1234567890
+BRAZILIAN_BLESSED_TEAM_NUMBER = +1234567890
 ```
 
 ### OpenAI API Key

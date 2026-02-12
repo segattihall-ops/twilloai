@@ -5,7 +5,7 @@ export async function POST() {
   const twiml = new twilio.twiml.VoiceResponse();
 
   twiml.say(
-    "The masseur is currently unavailable. Please leave your name, number, and message after the beep."
+    "Our team is currently assisting other clients. Please leave your name, phone number, and the best time to reach you after the beep. We'll get back to you shortly."
   );
 
   twiml.record({

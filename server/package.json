@@ -1,7 +1,7 @@
 {
-  "name": "masseurmatch-realtime-server",
+  "name": "brazilian-blessed-realtime-server",
   "version": "1.0.0",
-  "description": "OpenAI Realtime API WebSocket server for MasseurMatch waitlist",
+  "description": "OpenAI Realtime API WebSocket server for Brazilian Blessed Cleaning with ElevenLabs voice synthesis",
   "type": "module",
   "main": "realtime.js",
   "scripts": {
@@ -12,7 +12,8 @@
   "dependencies": {
     "ws": "^8.18.0",
     "node-fetch": "^3.3.2",
-    "@supabase/supabase-js": "^2.45.0"
+    "@supabase/supabase-js": "^2.45.0",
+    "elevenlabs": "^0.4.0"
   },
   "engines": {
     "node": ">=18.0.0"

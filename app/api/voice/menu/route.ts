@@ -8,20 +8,12 @@ export async function POST(req: Request) {
 
   switch (digit) {
     case "1":
-      // AI Waitlist Assistant
-      twiml.say("Welcome! MasseurMatch is launching soon, and I'd love to add you to our early access waitlist.");
-      const gather = twiml.gather({
-        input: ["speech"],
-        action: "/api/voice/ai-assistant",
-        method: "POST",
-        speechTimeout: "auto",
-        speechModel: "phone_call",
-      });
-      gather.say("To get started, may I have your full name?");
+      // AI Assistant - Schedule cleaning estimate
+      twiml.redirect("/api/voice/realtime");
       break;
 
     case "2":
-      // Transfer to masseur
+      // Transfer to team member
       twiml.redirect("/api/voice/transfer");
       break;
 
@@ -31,7 +23,7 @@ export async function POST(req: Request) {
       break;
 
     default:
-      twiml.say("Invalid entry. Goodbye.");
+      twiml.say("Invalid entry. Please call back and select a valid option. Goodbye.");
       twiml.hangup();
   }
 

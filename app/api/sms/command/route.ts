@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   const body = (form.get("Body") || "").toString().trim().toUpperCase();
   const fromNumber = form.get("From")?.toString();
 
-  if (fromNumber !== process.env.MASSEUR_PHONE) {
+  if (fromNumber !== process.env.BRAZILIAN_BLESSED_TEAM_NUMBER) {
     return new NextResponse("Ignored", { status: 200 });
   }
 
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const clientNumber = mapItem.data.number;
 
     await client.calls.create({
-      to: process.env.MASSEUR_PHONE!,
+      to: process.env.BRAZILIAN_BLESSED_TEAM_NUMBER!,
       from: process.env.TWILIO_PHONE_NUMBER!,
       url: `https://${process.env.VERCEL_URL}/api/voice/callback?client=${encodeURIComponent(
         clientNumber

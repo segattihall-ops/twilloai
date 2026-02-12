@@ -1,20 +1,20 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
 
-const MASSEUR_DEFAULT = "+1XXXXXXXXXX";
+const TEAM_DEFAULT = process.env.BRAZILIAN_BLESSED_TEAM_NUMBER || "+1XXXXXXXXXX";
 
 export async function POST() {
   const twiml = new twilio.twiml.VoiceResponse();
 
-  twiml.say("Connecting you with a masseur. Please hold.");
+  twiml.say("Thank you for calling Brazilian Blessed Cleaning. Connecting you with our team now. Please hold.");
 
   const dial = twiml.dial({
-    timeout: 20,
-    action: "/api/voice/voicemail",  // fallback
+    timeout: 30,
+    action: "/api/voice/voicemail",
     method: "POST",
   });
 
-  dial.number(MASSEUR_DEFAULT);
+  dial.number(TEAM_DEFAULT);
 
   return new NextResponse(twiml.toString(), {
     status: 200,
