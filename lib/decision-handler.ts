@@ -9,64 +9,74 @@ export interface DecisionData {
   decision: string;
 }
 
+export interface ClientInfo {
+  phone: string;
+  location?: string;
+  estimateAddress?: string;
+  propertyType?: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  preferredDate?: string;
+  preferredTime?: string;
+}
+
 /**
- * Generate email template for customer follow-up
+ * Send email notification to internal team and/or client
  */
-export function generateEmailTemplate(data: DecisionData): any {
-  return {
-    to: data.caller_phone, // In production, extract email from caller_phone lookup
-    subject: "Your Brazilian Blessed Cleaning Estimate - Next Steps",
-    body: `
-      <h2>Thank You for Your Interest!</h2>
+export async function sendEmailNotification(
+  decision: string,
+  clientInfo: ClientInfo,
+  callDuration: string
+): Promise<boolean> {
+  try {
+    const subject = `New Client ${decision === "email" ? "Email Request" : "Calendar Request"} - ${clientInfo.location || "Unknown Location"}`;
+    const body = `
+      <h2>New ${decision === "email" ? "Email" : "Calendar"} Request</h2>
+      <p><strong>Phone:</strong> ${clientInfo.phone}</p>
+      <p><strong>Location:</strong> ${clientInfo.location || "Not provided"}</p>
+      <p><strong>Call Duration:</strong> ${callDuration} seconds</p>
+      <p><strong>Client Decision:</strong> Prefers ${decision === "email" ? "email follow-up" : "calendar scheduling"}</p>
       
-      <p>Thank you for speaking with Sarah from Brazilian Blessed Cleaning. We're excited to help transform your home with our professional cleaning services.</p>
-      
-      <h3>Your Call Summary:</h3>
+      ${
+        clientInfo.estimateAddress
+          ? `
+      <h3>Estimate Details:</h3>
       <ul>
-        <li><strong>Location:</strong> ${data.caller_location}</li>
-        <li><strong>Call Duration:</strong> ${data.call_duration} seconds</li>
-        <li><strong>Service Interest:</strong> In-person cleaning estimate</li>
+        <li><strong>Address:</strong> ${clientInfo.estimateAddress}</li>
+        <li><strong>Property Type:</strong> ${clientInfo.propertyType || "N/A"}</li>
+        <li><strong>Bedrooms:</strong> ${clientInfo.bedrooms || "N/A"}</li>
+        <li><strong>Bathrooms:</strong> ${clientInfo.bathrooms || "N/A"}</li>
+        <li><strong>Preferred Date:</strong> ${clientInfo.preferredDate || "N/A"}</li>
+        <li><strong>Preferred Time:</strong> ${clientInfo.preferredTime || "N/A"}</li>
       </ul>
-      
-      <h3>Next Steps:</h3>
-      <p>Our team will contact you within 24 hours to confirm your in-person estimate appointment. We have availability:</p>
-      <ul>
-        <li>Tuesday: 10 AM - 12 PM</li>
-        <li>Wednesday: 2 PM - 4 PM</li>
-      </ul>
-      
-      <h3>Why Choose Brazilian Blessed Cleaning?</h3>
-      <ul>
-        <li>Professional and trained cleaning specialists</li>
-        <li>Luxury-level service quality</li>
-        <li>Personalized cleaning plans</li>
-        <li>Competitive pricing</li>
-        <li>100% satisfaction guaranteed</li>
-      </ul>
-      
-      <p>If you have any questions, please don't hesitate to reach out. We look forward to meeting you!</p>
-      
-      <p>Best regards,<br/>
-      <strong>Brazilian Blessed Cleaning Team</strong><br/>
-      Phone: ${process.env.TWILIO_PHONE_NUMBER}<br/>
-      Hours: Monday-Saturday, 9 AM - 5 PM</p>
-    `,
-    type: "email_followup",
-    priority: "high",
-  };
+      `
+          : ""
+      }
+    `;
+
+    console.log("📧 Email notification:", { subject, body });
+    // In production, integrate with email service
+    return true;
+  } catch (error) {
+    console.error("Error sending email notification:", error);
+    return false;
+  }
 }
 
 /**
  * Generate calendar invitation data
  */
-export function generateCalendarInvitation(data: DecisionData): any {
+export function generateCalendarInvitation(
+  clientInfo: ClientInfo
+): Record<string, any> {
   return {
     title: "Brazilian Blessed Cleaning Estimate",
     description: `
-      In-person cleaning estimate for client from ${data.caller_location}
+      In-person cleaning estimate for client from ${clientInfo.location}
       
-      Call duration: ${data.call_duration} seconds
-      Contact: ${data.caller_phone}
+      Property: ${clientInfo.estimateAddress || "To be confirmed"}
+      Type: ${clientInfo.propertyType || "Unknown"}
+      Size: ${clientInfo.bedrooms || "?"} bed, ${clientInfo.bathrooms || "?"} bath
     `,
     suggested_times: [
       {
@@ -82,6 +92,8 @@ export function generateCalendarInvitation(data: DecisionData): any {
         timezone: "America/Chicago",
       },
     ],
+    preferred_date: clientInfo.preferredDate,
+    preferred_time: clientInfo.preferredTime,
     attendees: [
       {
         email: "team@brazilianblessed.com",
@@ -89,47 +101,40 @@ export function generateCalendarInvitation(data: DecisionData): any {
         role: "organizer",
       },
     ],
-    location: data.caller_location,
+    location: clientInfo.estimateAddress || clientInfo.location || "To be confirmed",
     type: "calendar_booking",
     priority: "high",
   };
 }
 
 /**
- * Send email notification to internal team
+ * Send internal notification to internal team
  */
 export async function sendInternalNotification(
   decision: string,
-  data: DecisionData
+  clientInfo: ClientInfo,
+  callDuration: string
 ): Promise<boolean> {
   try {
-    if (!process.env.TEAM_EMAIL) {
-      console.warn("TEAM_EMAIL not configured");
-      return false;
-    }
-
     const subject =
       decision === "email"
-        ? `📧 Email Follow-up Requested - ${data.caller_location}`
-        : `📅 Calendar Booking Requested - ${data.caller_location}`;
+        ? `📧 Email Follow-up Requested - ${clientInfo.location}`
+        : `📅 Calendar Booking Requested - ${clientInfo.location}`;
 
     const body = `
       <h2>New Decision from Caller</h2>
       <p><strong>Decision Type:</strong> ${decision}</p>
-      <p><strong>Caller Location:</strong> ${data.caller_location}</p>
-      <p><strong>Caller Phone:</strong> ${data.caller_phone}</p>
-      <p><strong>Call Duration:</strong> ${data.call_duration} seconds</p>
+      <p><strong>Caller Phone:</strong> ${clientInfo.phone}</p>
+      <p><strong>Location:</strong> ${clientInfo.location || "Not provided"}</p>
+      <p><strong>Call Duration:</strong> ${callDuration} seconds</p>
       <p><strong>Action Required:</strong> ${
         decision === "email"
-          ? "Send professional follow-up email"
-          : "Prepare calendar slots and confirm appointment"
+          ? "Send professional follow-up email with estimate details"
+          : "Prepare calendar slots and confirm appointment time"
       }</p>
     `;
 
-    // In production, integrate with email service
-    // await sendEmail(process.env.TEAM_EMAIL, subject, body);
-
-    console.log("📧 Internal notification template:", { subject, body });
+    console.log("📬 Internal notification:", { subject, body });
     return true;
   } catch (error) {
     console.error("Error sending internal notification:", error);
@@ -140,13 +145,16 @@ export async function sendInternalNotification(
 /**
  * Extract client information from caller data
  */
-export function extractClientInfo(callerPhone: string, location: string) {
+export function extractClientInfo(callerPhone: string, location?: string, webhookData?: any): ClientInfo {
   return {
     phone: callerPhone,
     location: location,
-    source: "phone_call",
-    created_at: new Date().toISOString(),
-    status: "active",
+    estimateAddress: webhookData?.property_address,
+    propertyType: webhookData?.property_type,
+    bedrooms: webhookData?.bedrooms,
+    bathrooms: webhookData?.bathrooms,
+    preferredDate: webhookData?.preferred_date,
+    preferredTime: webhookData?.preferred_time,
   };
 }
 
@@ -177,21 +185,22 @@ function getNextWednesday(): string {
  */
 export async function logDecisionAnalytics(
   decision: string,
-  data: DecisionData
+  clientInfo: ClientInfo,
+  callDuration: string,
+  timestamp: string
 ): Promise<void> {
   try {
     const analyticsData = {
       event: "zapier_decision_received",
       decision_type: decision,
-      caller_location: data.caller_location,
-      call_duration_seconds: parseInt(data.call_duration),
-      timestamp: new Date().toISOString(),
+      caller_phone: clientInfo.phone,
+      caller_location: clientInfo.location,
+      call_duration_seconds: parseInt(callDuration),
+      timestamp: timestamp,
+      processed_at: new Date().toISOString(),
     };
 
-    console.log("📊 Analytics event:", analyticsData);
-
-    // In production, send to analytics service
-    // await analytics.track(analyticsData);
+    console.log("📊 Analytics event:", JSON.stringify(analyticsData, null, 2));
   } catch (error) {
     console.error("Error logging analytics:", error);
   }

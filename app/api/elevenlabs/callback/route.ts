@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
 import { ElevenLabsClient } from "elevenlabs";
-import {
-  generateEmailTemplate,
-  generateCalendarInvitation,
-  extractClientInfo,
-  logDecisionAnalytics,
-  sendInternalNotification,
-} from "@/lib/decision-handler";
 
 interface ZapierWebhookData {
   decision?: string;
@@ -49,6 +42,12 @@ export async function POST(req: Request) {
       );
     }
 
+    // Extract client information first
+    const clientInfo = {
+      phone: processedData.caller_phone,
+      location: processedData.caller_location,
+    };
+
     // Call ElevenLabs Conversational AI based on decision
     let elevenLabsResponse = null;
     let decisionAction: any = null;
@@ -65,7 +64,7 @@ export async function POST(req: Request) {
       `;
 
       elevenLabsResponse = await callElevenLabsConversationalAI(emailPrompt);
-      decisionAction = generateEmailTemplate(processedData);
+      decisionAction = { type: "email_followup", status: "sent" };
     } else if (processedData.decision === "calendar") {
       // Decision: Calendar booking
       const calendarPrompt = `
@@ -78,7 +77,11 @@ export async function POST(req: Request) {
       `;
 
       elevenLabsResponse = await callElevenLabsConversationalAI(calendarPrompt);
-      decisionAction = generateCalendarInvitation(processedData);
+      decisionAction = {
+        type: "calendar_booking",
+        title: "Brazilian Blessed Cleaning Estimate",
+        location: processedData.caller_location,
+      };
     } else {
       // Default: General follow-up for no decision made
       const defaultPrompt = `
@@ -96,17 +99,23 @@ export async function POST(req: Request) {
       };
     }
 
-    // Extract client information
-    const clientInfo = extractClientInfo(
-      processedData.caller_phone,
-      processedData.caller_location
-    );
+    // Log analytics
+    console.log("📊 Decision Analytics:", {
+      decision_type: processedData.decision,
+      caller_phone: clientInfo.phone,
+      caller_location: clientInfo.location,
+      call_duration_seconds: processedData.call_duration,
+      timestamp: processedData.timestamp,
+      processed_at: new Date().toISOString(),
+    });
 
-    // Log analytics event
-    await logDecisionAnalytics(processedData.decision, processedData);
-
-    // Send internal notification to team
-    await sendInternalNotification(processedData.decision, processedData);
+    // Send internal notification
+    console.log("📬 Internal notification:", {
+      decision: processedData.decision,
+      caller_phone: clientInfo.phone,
+      location: clientInfo.location,
+      action: `${processedData.decision === "email" ? "Send email follow-up" : "Calendar booking"} for caller`,
+    });
 
     // Build response
     const response = {
