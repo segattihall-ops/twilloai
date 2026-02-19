@@ -21,6 +21,16 @@ function validateEnv() {
   }
 }
 
+// GET handler for health checks
+export async function GET() {
+  const twiml = new twilio.twiml.VoiceResponse();
+  twiml.say("This endpoint is for voice calls only. Please configure your Twilio webhook to send POST requests to this URL.");
+  return new NextResponse(twiml.toString(), {
+    status: 200,
+    headers: { "Content-Type": "text/xml" },
+  });
+}
+
 export async function POST(req: Request) {
   const twiml = new twilio.twiml.VoiceResponse();
 
