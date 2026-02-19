@@ -170,9 +170,9 @@ Rules for interaction:
       assistantMessage?.tool_calls &&
       assistantMessage.tool_calls.length > 0
     ) {
-      const toolCall = assistantMessage.tool_calls[0];
+      const toolCall = assistantMessage.tool_calls[0] as any;
 
-      if (toolCall.function.name === "schedule_estimate") {
+      if (toolCall.function?.name === "schedule_estimate") {
         const functionArgs = JSON.parse(toolCall.function.arguments);
 
         // Save to Supabase
