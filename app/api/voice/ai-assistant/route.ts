@@ -1,23 +1,45 @@
 import { NextResponse } from "next/server";
 import twilio from "twilio";
-import OpenAI from "openai";
+import Groq from "groq-sdk";
 import { createClient } from "@supabase/supabase-js";
 
 // Store conversation state in memory (in production, use Redis or database)
 const conversationState = new Map<string, any>();
 
+// Validate environment variables
+function validateEnv() {
+  const required = [
+    "GROQ_API_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+  ];
+
+  const missing = required.filter((key) => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing environment variables: ${missing.join(", ")}`);
+  }
+}
+
 export async function POST(req: Request) {
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || "",
-  });
-
-  const form = await req.formData();
-  const speechResult = form.get("SpeechResult")?.toString() || "";
-  const callSid = form.get("CallSid")?.toString() || "";
-
   const twiml = new twilio.twiml.VoiceResponse();
 
   try {
+    // Validate environment variables
+    validateEnv();
+
+    const groq = new Groq({
+      apiKey: process.env.GROQ_API_KEY,
+    });
+
+    const form = await req.formData();
+    const speechResult = form.get("SpeechResult")?.toString() || "";
+    const callSid = form.get("CallSid")?.toString() || "";
+
+    if (!callSid) {
+      throw new Error("CallSid is missing from request");
+    }
+
     // Get or initialize conversation history
     const conversationHistory = conversationState.get(callSid) || [];
 
@@ -27,11 +49,9 @@ export async function POST(req: Request) {
       content: speechResult
     });
 
-    // Call OpenAI with function calling enabled
-    // Note: The prompt pmpt_692a9f2f6e148195850e91132c55366005098e88b3968255
-    // is for Realtime API. For Chat Completions, we embed the prompt directly.
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+    // Call Groq with tools (same API as OpenAI, but free and faster)
+    const completion = await groq.chat.completions.create({
+      model: "mixtral-8x7b-32768",
       messages: [
         {
           role: "system",
@@ -84,89 +104,111 @@ Rules for interaction:
         },
         ...conversationHistory
       ],
-      functions: [
+      tools: [
         {
-          name: "schedule_estimate",
-          description: "Schedule an in-person cleaning estimate for a new client",
-          parameters: {
-            type: "object",
-            properties: {
-              property_address: {
-                type: "string",
-                description: "The property address for the cleaning estimate"
+          type: "function",
+          function: {
+            name: "schedule_estimate",
+            description: "Schedule an in-person cleaning estimate for a new client",
+            parameters: {
+              type: "object",
+              properties: {
+                property_address: {
+                  type: "string",
+                  description: "The property address for the cleaning estimate"
+                },
+                phone: {
+                  type: "string",
+                  description: "The caller's phone number"
+                },
+                property_type: {
+                  type: "string",
+                  enum: ["house", "apartment", "airbnb", "commercial"],
+                  description: "Type of property"
+                },
+                bedrooms: {
+                  type: "number",
+                  description: "Number of bedrooms"
+                },
+                bathrooms: {
+                  type: "number",
+                  description: "Number of bathrooms"
+                },
+                preferred_date: {
+                  type: "string",
+                  description: "Preferred date for the estimate (e.g., 'Tuesday' or 'Wednesday')"
+                },
+                preferred_time: {
+                  type: "string",
+                  description: "Preferred time window for the estimate (e.g., '10 AM to 12 PM')"
+                }
               },
-              phone: {
-                type: "string",
-                description: "The caller's phone number"
-              },
-              property_type: {
-                type: "string",
-                enum: ["house", "apartment", "airbnb", "commercial"],
-                description: "Type of property"
-              },
-              bedrooms: {
-                type: "number",
-                description: "Number of bedrooms"
-              },
-              bathrooms: {
-                type: "number",
-                description: "Number of bathrooms"
-              },
-              preferred_date: {
-                type: "string",
-                description: "Preferred date for the estimate (e.g., 'Tuesday' or 'Wednesday')"
-              },
-              preferred_time: {
-                type: "string",
-                description: "Preferred time window for the estimate (e.g., '10 AM to 12 PM')"
-              }
-            },
-            required: ["property_address", "phone", "property_type", "bedrooms", "bathrooms", "preferred_date", "preferred_time"]
+              required: ["property_address", "phone", "property_type", "bedrooms", "bathrooms", "preferred_date", "preferred_time"]
+            }
           }
         }
       ],
-      function_call: "auto",
+      tool_choice: "auto",
       temperature: 0.7,
       max_tokens: 150,
     });
 
     const assistantMessage = completion.choices[0]?.message;
 
-    // Check if function was called
-    if (assistantMessage?.function_call) {
-      const functionArgs = JSON.parse(assistantMessage.function_call.arguments);
+    // Check if tool was called
+    if (
+      assistantMessage?.tool_calls &&
+      assistantMessage.tool_calls.length > 0
+    ) {
+      const toolCall = assistantMessage.tool_calls[0];
 
-      // Save to Supabase
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
+      if (toolCall.function.name === "schedule_estimate") {
+        const functionArgs = JSON.parse(toolCall.function.arguments);
 
-      const { error } = await supabase.from("cleaning_estimates").insert([{
-        property_address: functionArgs.property_address,
-        phone: functionArgs.phone,
-        property_type: functionArgs.property_type,
-        bedrooms: functionArgs.bedrooms,
-        bathrooms: functionArgs.bathrooms,
-        preferred_date: functionArgs.preferred_date,
-        preferred_time: functionArgs.preferred_time,
-        created_at: new Date().toISOString(),
-        call_sid: callSid
-      }]);
+        // Save to Supabase
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
-      if (error) {
-        console.error("Supabase Error:", error);
-        twiml.say("I apologize, but I'm having trouble saving your appointment. Please try again or call back later.");
-        twiml.hangup();
-      } else {
-        // Success - confirm to user
-        twiml.say(`Perfect! I've scheduled your in-person estimate at ${functionArgs.property_address}.`);
-        twiml.say(`We'll see you on ${functionArgs.preferred_date} between ${functionArgs.preferred_time}.`);
-        twiml.say("Thank you for choosing Brazilian Blessed Cleaning. We look forward to meeting you!");
-        twiml.hangup();
+        const { error } = await supabase
+          .from("cleaning_estimates")
+          .insert([
+            {
+              property_address: functionArgs.property_address,
+              phone: functionArgs.phone,
+              property_type: functionArgs.property_type,
+              bedrooms: functionArgs.bedrooms,
+              bathrooms: functionArgs.bathrooms,
+              preferred_date: functionArgs.preferred_date,
+              preferred_time: functionArgs.preferred_time,
+              created_at: new Date().toISOString(),
+              call_sid: callSid,
+            },
+          ]);
 
-        // Clear conversation state
-        conversationState.delete(callSid);
+        if (error) {
+          console.error("Supabase Error:", error);
+          twiml.say(
+            "I apologize, but I'm having trouble saving your appointment. Please try again or call back later."
+          );
+          twiml.hangup();
+        } else {
+          // Success - confirm to user
+          twiml.say(
+            `Perfect! I've scheduled your in-person estimate at ${functionArgs.property_address}.`
+          );
+          twiml.say(
+            `We'll see you on ${functionArgs.preferred_date} between ${functionArgs.preferred_time}.`
+          );
+          twiml.say(
+            "Thank you for choosing Brazilian Blessed Cleaning. We look forward to meeting you!"
+          );
+          twiml.hangup();
+
+          // Clear conversation state
+          conversationState.delete(callSid);
+        }
       }
     } else {
       // Continue conversation - AI is still collecting info
@@ -186,15 +228,13 @@ Rules for interaction:
       twiml.say(aiResponse);
 
       // Gather next input
-      const gather = twiml.gather({
+      twiml.gather({
         input: ["speech"],
         action: "/api/voice/ai-assistant",
         method: "POST",
         speechTimeout: "auto",
         speechModel: "phone_call",
       });
-
-      // No need for additional prompt - AI will continue naturally
     }
 
     return new NextResponse(twiml.toString(), {
@@ -204,11 +244,23 @@ Rules for interaction:
   } catch (error) {
     console.error("AI Assistant Error:", error);
 
-    // Clear state on error
-    conversationState.delete(callSid);
+    // Extract call SID if available
+    const form = await req.formData().catch(() => null);
+    const callSid = form?.get("CallSid")?.toString();
 
-    // Graceful fallback
-    twiml.say("I apologize for the inconvenience. Our system is experiencing technical difficulties. Please visit our website or call back later. Thank you.");
+    // Clear state on error
+    if (callSid) {
+      conversationState.delete(callSid);
+    }
+
+    // Graceful fallback with detailed logging
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("Detailed error:", errorMessage);
+
+    twiml.say(
+      "I apologize for the inconvenience. Our system is experiencing technical difficulties. Please visit our website or call back later. Thank you."
+    );
     twiml.hangup();
 
     return new NextResponse(twiml.toString(), {
